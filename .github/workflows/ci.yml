@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,3 +26,17 @@ jobs:
         run: |
           set -o pipefail
           pytest 2>&1 | tee test.log
+
+      - name: AI agent diagnoses the failure
+        if: failure()
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python agent.py
+
+      - name: Post diagnosis on the commit
+        if: failure() && hashFiles('diagnosis.md') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+            -F body=@diagnosis.md
